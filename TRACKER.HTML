@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Expenses Tracker</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+
+        body { 
+            font-family: 'Poppins', sans-serif; 
+            padding: 20px; 
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        h1 { 
+            text-align: center; 
+            color: #ff6f61; 
+            margin-bottom: 20px;
+        }
+        form { 
+            display: flex; 
+            justify-content: space-between; 
+            flex-wrap: wrap; 
+            margin-bottom: 20px; 
+            background: #fff; 
+            padding: 20px; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
+        }
+        form label { 
+            flex: 1 1 100%; 
+            margin-bottom: 10px;
+        }
+        form input, form select { 
+            flex: 1 1 45%; 
+            padding: 10px; 
+            margin-bottom: 10px; 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            font-size: 14px;
+        }
+        form button { 
+            flex: 1 1 100%; 
+            padding: 10px; 
+            background: #ff6f61; 
+            color: #fff; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 16px; 
+            transition: background-color 0.3s ease;
+        }
+        form button:hover { 
+            background: #ff4b3a; 
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 20px; 
+            background: #fff; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
+        }
+        th, td { 
+            padding: 12px; 
+            text-align: left; 
+            border-bottom: 1px solid #eee; 
+        }
+        th { 
+            background-color: #ff6f61; 
+            color: #fff; 
+        }
+        td button { 
+            background: #ff6f61; 
+            color: #fff; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            padding: 5px 10px; 
+            margin: 2px;
+            transition: background-color 0.3s ease;
+        }
+        td button:hover { 
+            background: #ff4b3a; 
+        }
+        .total, .ending-balance { 
+            font-weight: bold; 
+            font-size: 18px; 
+            text-align: right; 
+            margin-top: 20px; 
+            background: #fff; 
+            padding: 20px; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .controls button {
+            padding: 10px;
+            background: #ff6f61;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        .controls button:hover {
+            background: #ff4b3a;
+        }
+        @media (max-width: 768px) {
+            form input, form select { 
+                flex: 1 1 100%; 
+            }
+            form button { 
+                flex: 1 1 100%; 
+            }
+        }
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            table, .total, .ending-balance, table * {
+                visibility: visible;
+            }
+            table {
+                position: absolute;
+                left: 0;
+                top: 0;
+            }
+            .total, .ending-balance {
+                position: absolute;
+                bottom: 0;
+                right: 0;
+                width: 100%;
+                text-align: right;
+                padding: 20px;
+                box-sizing: border-box;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Daily Expenses Tracker</h1>
+    <form id="expense-form">
+        <label for="date">Date:</label>
+        <input type="date" id="date" required>
+        <label for="type">Type:</label>
+        <select id="type" required>
+            <option value="expense">Expense</option>
+            <option value="income">Income</option>
+        </select>
+        <label for="amount">Amount:</label>
+        <input type="number" id="amount" step="0.01" required>
+        <label for="description">Description:</label>
+        <input type="text" id="description" required>
+        <button type="submit">Add Entry</button>
+    </form>
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Description</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="expenses-list"></tbody>
+    </table>
+    <div class="total">Total for the month: ₱<span id="total-amount">0.00</span></div>
+    <div class="ending-balance">Ending Balance: ₱<span id="ending-balance">0.00</span></div>
+    <div class="controls">
+        <button id="reset-expenses">Reset Expenses</button>
+        <button id="print-expenses">Print</button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('expense-form');
+            const expensesList = document.getElementById('expenses-list');
+            const totalAmount = document.getElementById('total-amount');
+            const endingBalance = document.getElementById('ending-balance');
+            const resetButton = document.getElementById('reset-expenses');
+            const printButton = document.getElementById('print-expenses');
+
+            let expenses = JSON.parse(localStorage.getItem('expenses')) || [];
+            let startingBalance = 0.00; // Set the starting balance to 0
+
+            function renderExpenses() {
+                expensesList.innerHTML = '';
+                let total = 0;
+                let balance = startingBalance;
+                const currentMonth = new Date().getMonth();
+                expenses.forEach((expense, index) => {
+                    const date = new Date(expense.date);
+                    if (date.getMonth() === currentMonth) {
+                        if (expense.type === 'expense') {
+                            total -= parseFloat(expense.amount);
+                            balance -= parseFloat(expense.amount);
+                        } else {
+                            total += parseFloat(expense.amount);
+                            balance += parseFloat(expense.amount);
+                        }
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${expense.date}</td>
+                            <td>${expense.type}</td>
+                            <td>₱${parseFloat(expense.amount).toFixed(2)}</td>
+                            <td>${expense.description}</td>
+                            <td>
+                                <button onclick="editExpense(${index})">Edit</button>
+                                <button onclick="deleteExpense(${index})">Delete</button>
+                            </td>
+                        `;
+                        expensesList.appendChild(row);
+                    }
+                });
+                totalAmount.textContent = total.toFixed(2);
+                endingBalance.textContent = balance.toFixed(2);
+            }
+
+            window.editExpense = function(index) {
+                const expense = expenses[index];
+                document.getElementById('date').value = expense.date;
+                document.getElementById('type').value = expense.type;
+                document.getElementById('amount').value = expense.amount;
+                document.getElementById('description').value = expense.description;
+                expenses.splice(index, 1);
+                localStorage.setItem('expenses', JSON.stringify(expenses));
+                renderExpenses();
+            };
+
+            window.deleteExpense = function(index) {
+                expenses.splice(index, 1);
+                localStorage.setItem('expenses', JSON.stringify(expenses));
+                renderExpenses();
+            };
+
+            resetButton.addEventListener('click', function() {
+                if (confirm('Are you sure you want to reset all expenses?')) {
+                    expenses = [];
+                    localStorage.setItem('expenses', JSON.stringify(expenses));
+                    renderExpenses();
+                }
+            });
+
+            printButton.addEventListener('click', function() {
+                window.print();
+            });
+
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const date = document.getElementById('date').value;
+                const type = document.getElementById('type').value;
+                const amount = document.getElementById('amount').value;
+                const description = document.getElementById('description').value;
+                const expense = { date, type, amount, description };
+
+                expenses.push(expense);
+                localStorage.setItem('expenses', JSON.stringify(expenses));
+
+                renderExpenses();
+                form.reset();
+            });
+
+            renderExpenses();
+        });
+    </script>
+</body>
+</html>
